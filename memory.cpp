@@ -3,7 +3,7 @@
 #ifndef MEMORY
 #define MEMORY
 
-#define ADDR_WIDTH 8               // in bits
+#define ADDR_WIDTH 10              // in bits
 #define MEM_SIZE (1 << ADDR_WIDTH) // in words
 #define WORD_WIDTH 8               // in bits
 
@@ -23,41 +23,37 @@ SC_MODULE(Memory)
 
     void run()
     {
-        while (true)
+        if (reset.read() == 1)
         {
-            wait(reset.posedge_event() | read_clock.posedge_event() | write_clock.posedge_event());
-
-            if (reset.posedge())
+            cout << sc_time_stamp() << "  | RESETTING MEMORY\n";
+            for (int i = 0; i < MEM_SIZE; i++)
             {
-                cout << "RESETTING MEMORY\n";
-                for (int i = 0; i < MEM_SIZE; i++)
-                {
-                    data[i] = 0;
-                    data_out.write(0);
-                }
+                data[i] = 0;
+                data_out.write(0);
             }
-            else if (write_enable.read() == 0)
+        }
+        else if (write_enable.read() == 0)
+        {
+            if (read_clock.read() == 1)
             {
-                if (read_clock.posedge())
-                {
-                    cout << "READING FROM MEMORY\n";
-                    data_out.write(data[address.read()]);
-                }
+                cout << sc_time_stamp() << " | READING FROM MEMORY value: " << data[address.read()] << " at location " << address.read() << endl;
+                data_out.write(data[address.read()]);
             }
-            else
+        }
+        else
+        {
+            if (write_clock.read() == 1)
             {
-                if (write_clock.posedge())
-                {
-                    cout << "WRITING TO MEMORY\n";
-                    data[address.read()] = data_in.read();
-                }
+                cout << sc_time_stamp() << " | WRITING TO MEMORY value: " << data_in.read() << " at location " << address.read() << endl;
+                data[address.read()] = data_in.read();
             }
         }
     }
 
     SC_CTOR(Memory)
     {
-        SC_THREAD(run);
+        SC_METHOD(run);
+        sensitive << reset.pos() << read_clock.pos() << write_clock.pos();
     }
 };
 

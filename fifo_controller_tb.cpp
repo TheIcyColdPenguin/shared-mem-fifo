@@ -5,68 +5,135 @@ SC_MODULE(FifoController_tb)
 {
     sc_signal<bool> reset;
 
-    sc_signal<bool> write_clock[NUM_FIFOS];
-    sc_signal<bool> read_clock[NUM_FIFOS];
+    sc_signal<sc_bv<NUM_FIFOS>> write_clock;
+    sc_signal<sc_bv<NUM_FIFOS>> read_clock;
 
     sc_signal<sc_uint<WORD_WIDTH>> data_in[NUM_FIFOS];
     sc_signal<sc_uint<WORD_WIDTH>> data_out[NUM_FIFOS];
 
+public:
     FifoController fifoController;
-
-    void clock_gen()
-    {
-        while (true)
-        {
-            write_clock[0].write(0);
-            read_clock[0].write(0);
-            wait(5, SC_NS);
-            read_clock[0].write(1);
-            wait(5, SC_NS);
-            read_clock[0].write(0);
-            wait(5, SC_NS);
-            read_clock[0].write(1);
-            wait(5, SC_NS);
-            read_clock[0].write(0);
-            wait(5, SC_NS);
-            write_clock[0].write(1);
-            wait(5, SC_NS);
-            write_clock[0].write(0);
-            wait(5, SC_NS);
-            write_clock[0].write(1);
-            wait(5, SC_NS);
-        }
-    }
 
     void data_gen()
     {
+        cout << sc_time_stamp() << " || SIM: Reset" << endl;
+
         wait(3, SC_NS);
 
         // reset
-        reset.write(1);
+        read_clock = "00";
+        write_clock = "00";
+
+        reset = 1;
         wait(10, SC_NS);
-        reset.write(0);
+        reset = 0;
         wait(10, SC_NS);
 
-        // TODO: test pattern
-        read_clock[0].write(1);
-        data_in[0].write(0xFF);
-        read_clock[0].write(0);
+        // write data one by one into all FIFOs
+
+        cout << sc_time_stamp() << " || SIM: Write to all FIFOs\n\n";
+
+        int i = 0;
+        while (i < 512)
+        {
+            for (int j = 0; j < NUM_FIFOS; j++)
+            {
+                cout << sc_time_stamp() << " || SIM: Write " << i << " to FIFO_" << j << endl;
+
+                data_in[j] = i;
+                wait(SC_ZERO_TIME);
+                write_clock = 1 << j;
+                wait(5, SC_NS);
+                write_clock = 0;
+                wait(5, SC_NS);
+                i++;
+            }
+        }
+
+        //  read back data from all fifos sequentially
+        cout << sc_time_stamp() << " || SIM: Write to all FIFOs\n\n";
+
+        for (int j = 0; j < NUM_FIFOS; j++)
+        {
+            cout << sc_time_stamp() << " || SIM: Read FIFO_" << j << endl;
+
+            for (int i = 0; i < 512 / NUM_FIFOS; i++)
+            {
+                read_clock = 1 << j;
+                wait(5, SC_NS);
+                read_clock = 0;
+                wait(5, SC_NS);
+            }
+        }
+
         wait(10, SC_NS);
 
+        cout << sc_time_stamp() << " || SIM: Exit sim" << endl;
         sc_stop();
     }
 
-    SC_CTOR(FifoController_tb) : fifoController("FIFO_CONTROLLER")
+    // void data_gen()
+    // {
+    //     cout << sc_time_stamp() << " || SIM: Reset" << endl;
+
+    //     wait(3, SC_NS);
+
+    //     // reset
+    //     read_clock = "00";
+    //     write_clock = "00";
+
+    //     reset = 1;
+    //     wait(10, SC_NS);
+    //     reset = 0;
+    //     wait(10, SC_NS);
+
+    //     // TODO: test pattern
+
+    //     // write 0xFF then 0x10 into fifo_1
+
+    //     cout << sc_time_stamp() << " || SIM: Write 0xFF then 0x10" << endl;
+    //     // wait(5, SC_NS);
+    //     data_in[0] = 0xFF;
+    //     wait(SC_ZERO_TIME);
+    //     write_clock = "01";
+    //     wait(5, SC_NS);
+    //     write_clock = "00";
+    //     wait(5, SC_NS);
+
+    //     data_in[0] = 0x10;
+    //     write_clock = "01";
+    //     wait(5, SC_NS);
+    //     write_clock = "00";
+    //     wait(5, SC_NS);
+
+    //     cout << sc_time_stamp() << " || SIM: Read 0xFF then 0x10" << endl;
+    //     // read out 0xFF then 0x10 from fifo_1
+    //     read_clock = "01";
+    //     wait(5, SC_NS);
+    //     read_clock = "00";
+    //     wait(5, SC_NS);
+    //     read_clock = "01";
+    //     wait(5, SC_NS);
+    //     read_clock = "00";
+    //     wait(5, SC_NS);
+
+    //     cout << sc_time_stamp() << " || SIM: Exit sim" << endl;
+    //     sc_stop();
+    // }
+
+    SC_CTOR(FifoController_tb)
+        : fifoController("FIFO_CONTROLLER")
     {
         fifoController.reset(reset);
+        fifoController.write_clock(write_clock);
+        fifoController.read_clock(read_clock);
+
         for (int i = 0; i < NUM_FIFOS; i++)
         {
-            fifoController.write_clock[i](write_clock[i]);
-            fifoController.read_clock[i](read_clock[i]);
             fifoController.data_in[i](data_in[i]);
             fifoController.data_out[i](data_out[i]);
         }
-        SC_THREAD(clock_gen);
+
         SC_THREAD(data_gen);
     }
 };
@@ -77,12 +144,13 @@ int sc_main(int argc, char *argv[])
 
     sc_trace_file *tf = sc_create_vcd_trace_file("waveform");
 
+    sc_trace(tf, tb.fifoController.read_clock, "read_clock");
+    sc_trace(tf, tb.fifoController.write_clock, "write_clock");
+
     for (int i = 0; i < NUM_FIFOS; i++)
     {
-        sc_trace(tf, tb.read_clock[i], "read_clock_" + std::to_string(i));
-        sc_trace(tf, tb.write_clock[i], "write_clock_" + std::to_string(i));
-        sc_trace(tf, tb.data_in[i], "data_in_" + std::to_string(i));
-        sc_trace(tf, tb.data_out[i], "data_out_" + std::to_string(i));
+        sc_trace(tf, tb.fifoController.data_in[i], "data_in_" + std::to_string(i));
+        sc_trace(tf, tb.fifoController.data_out[i], "data_out_" + std::to_string(i));
     }
 
     sc_trace(tf, tb.reset, "reset");
