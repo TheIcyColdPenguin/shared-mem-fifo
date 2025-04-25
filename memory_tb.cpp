@@ -7,7 +7,8 @@ SC_MODULE(Memory_tb)
     sc_signal<bool> write_clock;
     sc_signal<bool> reset;
     sc_signal<bool> write_enable;
-    sc_signal<sc_uint<ADDR_WIDTH>> address;
+    sc_signal<sc_uint<ADDR_WIDTH>> address_read;
+    sc_signal<sc_uint<ADDR_WIDTH>> address_write;
     sc_signal<sc_uint<WORD_WIDTH>> data_in;
     sc_signal<sc_uint<WORD_WIDTH>> data_out;
 
@@ -41,7 +42,7 @@ SC_MODULE(Memory_tb)
         // write 0x14 to 0x12
         write_enable.write(1);
         data_in.write(0x14);
-        address.write(0x12);
+        address_write.write(0x12);
         cout << sc_time_stamp() << " | set write_enable = 1" << endl;
         cout << sc_time_stamp() << " | set data_in = 0x14" << hex << endl;
         cout << sc_time_stamp() << " | set address = 0x12" << endl;
@@ -49,14 +50,14 @@ SC_MODULE(Memory_tb)
 
         // read from 0x10
         write_enable.write(0);
-        address.write(0x10);
+        address_read.write(0x10);
         cout << sc_time_stamp() << " | set write_enable = 0" << endl;
         cout << sc_time_stamp() << " | set address = 0x10" << endl;
         wait(10, SC_NS);
 
         // read from 0x12
         write_enable.write(0);
-        address.write(0x12);
+        address_read.write(0x12);
         cout << sc_time_stamp() << " | set write_enable = 0" << endl;
         cout << sc_time_stamp() << " | set address = 0x12" << endl;
         wait(10, SC_NS);
@@ -76,7 +77,8 @@ SC_MODULE(Memory_tb)
         ram.write_clock(write_clock);
         ram.reset(reset);
         ram.write_enable(write_enable);
-        ram.address(address);
+        ram.address_read(address_read);
+        ram.address_write(address_write);
         ram.data_in(data_in);
         ram.data_out(data_out);
 
@@ -99,7 +101,8 @@ SC_MODULE(Memory_tb)
 //     sc_trace(tf, tb.write_clock, "write_clock");
 //     sc_trace(tf, tb.reset, "reset");
 //     sc_trace(tf, tb.write_enable, "write_enable");
-//     sc_trace(tf, tb.address, "address");
+//     sc_trace(tf, tb.address_read, "address_read");
+//     sc_trace(tf, tb.address_write, "address_write");
 //     sc_trace(tf, tb.data_in, "data_in");
 //     sc_trace(tf, tb.data_out, "data_out");
 

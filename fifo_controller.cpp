@@ -4,7 +4,7 @@
 #ifndef FIFO_CONTROLLER
 #define FIFO_CONTROLLER
 
-#define NUM_FIFOS 8
+#define NUM_FIFOS 4
 
 // TODO: busy meter
 // TODO: ensure no more than one writes at a time
@@ -32,20 +32,20 @@ SC_MODULE(FifoController)
     sc_signal<bool> mem_read_clock;
     sc_signal<sc_uint<WORD_WIDTH>> mem_data_in;
     sc_signal<sc_uint<WORD_WIDTH>> mem_data_out;
-    sc_signal<sc_uint<ADDR_WIDTH>> mem_address;
+    sc_signal<sc_uint<ADDR_WIDTH>> mem_address_read;
+    sc_signal<sc_uint<ADDR_WIDTH>> mem_address_write;
     sc_signal<bool> mem_write_enable;
     sc_signal<bool> mem_reset;
 
     Memory mem;
 
-    void enque_deque()
+    void enque()
     {
 
         while (true)
         {
-
             // cout << sc_time_stamp() << " | waiting for next event\n";
-            wait(write_clock.value_changed_event() | read_clock.value_changed_event());
+            wait(write_clock.value_changed_event());
 
             // cout << sc_time_stamp() << " | write clock = " << write_clock.read() << endl;
             for (int i = 0; i < NUM_FIFOS; i++)
@@ -62,7 +62,7 @@ SC_MODULE(FifoController)
 
                     // increment tail
 
-                    mem_address = data_fifos[i][data_tail[i] - 1];
+                    mem_address_write = data_fifos[i][data_tail[i] - 1];
                     mem_data_in = data_in[i];
 
                     mem_write_enable = 1;
@@ -78,8 +78,16 @@ SC_MODULE(FifoController)
                     break;
                 }
             }
+        }
+    }
+
+    void deque()
+    {
+        while (true)
+        {
 
             // cout << sc_time_stamp() << " | read clock = " << read_clock.read() << endl;
+            wait(read_clock.value_changed_event());
 
             for (int i = 0; i < NUM_FIFOS; i++)
             {
@@ -97,8 +105,7 @@ SC_MODULE(FifoController)
 
                     // increment head
 
-                    mem_address = data_fifos[i][data_head[i]];
-                    mem_write_enable = 0;
+                    mem_address_read = data_fifos[i][data_head[i]];
 
                     mem_read_clock = 1;
 
@@ -120,6 +127,8 @@ SC_MODULE(FifoController)
 
     void reset_mem()
     {
+        cout << sc_time_stamp() << " | RESETTING FIFO" << endl;
+
         mem_reset = reset;
         if (reset.read())
         {
@@ -205,22 +214,25 @@ SC_MODULE(FifoController)
         : mem("MEMORY")
     {
         mem.reset(mem_reset);
-        mem.address(mem_address);
+        mem.address_read(mem_address_read);
+        mem.address_write(mem_address_write);
         mem.write_enable(mem_write_enable);
         mem.data_in(mem_data_in);
         mem.data_out(mem_data_out);
         mem.write_clock(mem_write_clock);
         mem.read_clock(mem_read_clock);
 
-        SC_THREAD(enque_deque);
-        sensitive << write_clock << read_clock;
-        // dont_initialize();
+        SC_THREAD(enque);
+        sensitive << write_clock;
+
+        SC_THREAD(deque);
+        sensitive << read_clock;
 
         SC_METHOD(reset_mem);
         sensitive << reset;
 
-        // SC_METHOD(monitor_allocator);
-        // sensitive << write_clock << read_clock;
+        SC_METHOD(monitor_allocator);
+        sensitive << write_clock << read_clock;
     }
 };
 

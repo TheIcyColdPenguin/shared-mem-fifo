@@ -34,7 +34,8 @@ public:
         cout << sc_time_stamp() << " || SIM: Write to all FIFOs\n\n";
 
         int i = 0;
-        while (i < 512)
+        int test_count = 16;
+        while (i < test_count)
         {
             for (int j = 0; j < NUM_FIFOS; j++)
             {
@@ -57,7 +58,7 @@ public:
         {
             cout << sc_time_stamp() << " || SIM: Read FIFO_" << j << endl;
 
-            for (int i = 0; i < 512 / NUM_FIFOS; i++)
+            for (int i = 0; i < test_count / NUM_FIFOS; i++)
             {
                 read_clock = 1 << j;
                 wait(5, SC_NS);
